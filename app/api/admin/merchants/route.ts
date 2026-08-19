@@ -1,30 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { getCurrentSession } from "@/lib/auth";
-
-async function requireAdmin() {
-  const session = getCurrentSession();
-  if (!session) return null;
-
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  const configuredAdmin = process.env.ADMIN_EMAIL?.toLowerCase();
-  const isAdmin = user?.role === "ADMIN" ||
-    user?.name === "Admin" ||
-    user?.email.toLowerCase() === configuredAdmin;
-
-  return isAdmin ? user : null;
-}
+import { getAccess } from "@/lib/access";
+import {
+  cleanText,
+  isSameOrigin,
+  validGoogleReviewUrl,
+  validHttpsUrl,
+} from "@/lib/security";
 
 export async function GET() {
-  const admin = await requireAdmin();
-  if (!admin) return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
+  const access = await getAccess();
+  if (!access?.isAdmin) {
+    return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
+  }
 
   const merchants = await prisma.user.findMany({
-    where: {
-      id: { not: admin.id },
-      role: "MERCHANT",
-    },
+    where: { id: { not: access.user.id }, role: "MERCHANT" },
     select: {
       id: true,
       name: true,
@@ -47,39 +39,53 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Origine non autorisée." }, { status: 403 });
+  }
 
-  const { name, email, password, businessName, googleReviewUrl, logoUrl } = await req.json();
-  if (!name || !email || !password || !businessName) {
+  const access = await getAccess();
+  if (!access?.isAdmin) {
+    return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const name = cleanText(body?.name, 100);
+  const email = cleanText(body?.email, 254).toLowerCase();
+  const password = typeof body?.password === "string" ? body.password : "";
+  const businessName = cleanText(body?.businessName, 120);
+  const googleReviewInput = cleanText(body?.googleReviewUrl, 500);
+  const logoInput = cleanText(body?.logoUrl, 500);
+
+  if (!name || !email || !businessName || password.length < 12 || password.length > 200) {
     return NextResponse.json(
-      { error: "Nom, email, mot de passe et nom du commerce sont requis." },
+      { error: "Tous les champs sont requis et le mot de passe doit avoir au moins 12 caractères." },
       { status: 400 }
     );
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères." }, { status: 400 });
+
+  const googleReviewUrl = googleReviewInput ? validGoogleReviewUrl(googleReviewInput) : null;
+  const logoUrl = logoInput ? validHttpsUrl(logoInput) : null;
+  if (googleReviewInput && !googleReviewUrl) {
+    return NextResponse.json({ error: "Le lien Google Avis n'est pas valide." }, { status: 400 });
+  }
+  if (logoInput && !logoUrl) {
+    return NextResponse.json({ error: "Le logo doit utiliser une adresse HTTPS valide." }, { status: 400 });
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return NextResponse.json({ error: "Un compte utilise déjà cet email." }, { status: 409 });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 12);
   const merchant = await prisma.user.create({
     data: {
-      name: name.trim(),
-      email: normalizedEmail,
+      name,
+      email,
       password: hashedPassword,
       role: "MERCHANT",
       businesses: {
-        create: {
-          name: businessName.trim(),
-          googleReviewUrl: googleReviewUrl?.trim() || null,
-          logoUrl: logoUrl?.trim() || null,
-        },
+        create: { name: businessName, googleReviewUrl, logoUrl },
       },
     },
     select: {
