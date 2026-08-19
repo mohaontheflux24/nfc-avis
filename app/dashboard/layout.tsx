@@ -25,6 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <NavLink href="/dashboard/cards">Cartes NFC</NavLink>
               </>
             )}
+            {!access.isAdmin && <NavLink href="/dashboard/billing">Abonnement</NavLink>}
             <NavLink href="/dashboard/security">Sécurité</NavLink>
           </nav>
         </div>
