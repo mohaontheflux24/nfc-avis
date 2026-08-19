@@ -31,9 +31,9 @@ export default function DashboardHome() {
         <>
           <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5">
             <StatCard label="Scans" value={stats.scanCount} />
-            <StatCard label="Avis Google" value={stats.googleReviewCount} />
+            <StatCard label="Clics Google" value={stats.googleReviewCount} />
             <StatCard label="Taux de conversion" value={`${stats.conversionRate}%`} />
-            <StatCard label="Retours privés" value={stats.reviewCount - stats.googleReviewCount} />
+            <StatCard label="Retours privés" value={stats.privateFeedback.length} />
             <StatCard label="Note moyenne" value={stats.averageRating ? `${stats.averageRating} ★` : "—"} />
           </div>
 
