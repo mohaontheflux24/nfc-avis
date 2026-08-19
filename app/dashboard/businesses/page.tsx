@@ -6,6 +6,7 @@ type Merchant = {
   id: string;
   name: string | null;
   email: string;
+  active: boolean;
   businesses: {
     id: string;
     name: string;
@@ -23,6 +24,7 @@ export default function MerchantsPage() {
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -72,6 +74,71 @@ export default function MerchantsPage() {
       await loadMerchants();
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleMerchant(merchant: Merchant) {
+    setError(null);
+    setSuccess(null);
+    setActionId(merchant.id);
+
+    try {
+      const response = await fetch("/api/admin/merchants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: merchant.id, active: !merchant.active }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Impossible de modifier ce compte.");
+        return;
+      }
+
+      setSuccess(
+        merchant.active
+          ? `Le compte de ${merchant.email} est désactivé. Ses cartes NFC sont maintenant bloquées.`
+          : `Le compte de ${merchant.email} est réactivé.`
+      );
+      await loadMerchants();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function deleteMerchant(merchant: Merchant) {
+    const accepted = window.confirm(
+      `Supprimer définitivement ${merchant.email} ?\n\nToutes ses entreprises, cartes NFC, statistiques et retours seront supprimés. Cette action est irréversible. Si vous souhaitez conserver les données, utilisez plutôt « Désactiver ».`
+    );
+    if (!accepted) return;
+
+    const confirmation = window.prompt(
+      'Pour confirmer la suppression définitive, tapez exactement : SUPPRIMER'
+    );
+    if (confirmation !== "SUPPRIMER") {
+      if (confirmation !== null) setError("Suppression annulée : le mot SUPPRIMER n'a pas été saisi exactement.");
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setActionId(merchant.id);
+
+    try {
+      const response = await fetch("/api/admin/merchants", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: merchant.id, confirmation }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Impossible de supprimer ce compte.");
+        return;
+      }
+
+      setSuccess(`Le compte ${merchant.email} et toutes ses données ont été supprimés.`);
+      await loadMerchants();
+    } finally {
+      setActionId(null);
     }
   }
 
@@ -147,13 +214,32 @@ export default function MerchantsPage() {
         </button>
       </form>
 
-      <h2 className="mt-12 font-display text-lg font-semibold">Commerçants enregistrés</h2>
+      <div className="mt-12">
+        <h2 className="font-display text-lg font-semibold">Commerçants enregistrés</h2>
+        <p className="mt-1 text-sm text-mist">
+          Désactiver bloque la connexion et les cartes NFC sans effacer les données.
+        </p>
+      </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {merchants.length === 0 && <p className="text-sm text-mist">Aucun commerçant pour le moment.</p>}
         {merchants.map((merchant) => (
           <div key={merchant.id} className="card">
-            <p className="font-display font-semibold">{merchant.name || "Sans nom"}</p>
-            <p className="mt-1 text-sm text-mist">{merchant.email}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-display font-semibold">{merchant.name || "Sans nom"}</p>
+                <p className="mt-1 text-sm text-mist">{merchant.email}</p>
+              </div>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                  merchant.active
+                    ? "bg-green-100 text-green-800"
+                    : "bg-orange-100 text-orange-800"
+                }`}
+              >
+                {merchant.active ? "Actif" : "Désactivé"}
+              </span>
+            </div>
+
             <div className="mt-4 space-y-2">
               {merchant.businesses.map((business) => (
                 <div key={business.id} className="rounded-lg bg-porcelain p-3">
@@ -163,6 +249,29 @@ export default function MerchantsPage() {
                   </p>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2 border-t border-black/10 pt-4">
+              <button
+                type="button"
+                disabled={actionId === merchant.id}
+                onClick={() => toggleMerchant(merchant)}
+                className="rounded-lg border border-black/15 px-3 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {actionId === merchant.id
+                  ? "Patientez..."
+                  : merchant.active
+                    ? "Désactiver"
+                    : "Réactiver"}
+              </button>
+              <button
+                type="button"
+                disabled={actionId === merchant.id}
+                onClick={() => deleteMerchant(merchant)}
+                className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-50"
+              >
+                Supprimer définitivement
+              </button>
             </div>
           </div>
         ))}
