@@ -1,42 +1,62 @@
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
-const COOKIE_NAME = "nfc_avis_session";
+const COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-nfc_avis_session" : "nfc_avis_session";
+
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET doit contenir au moins 32 caractères.");
+  }
+  return secret;
+}
 
 export type SessionPayload = {
   userId: string;
   email: string;
+  sessionVersion: number;
 };
 
 export function signSession(payload: SessionPayload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" });
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: "12h",
+    issuer: "nfc-avis",
+    audience: "nfc-avis-dashboard",
+  });
 }
 
 export function verifySession(token: string): SessionPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as SessionPayload;
+    return jwt.verify(token, getJwtSecret(), {
+      issuer: "nfc-avis",
+      audience: "nfc-avis-dashboard",
+    }) as SessionPayload;
   } catch {
     return null;
   }
 }
 
-// À utiliser dans les Route Handlers pour poser le cookie de session
 export function setSessionCookie(token: string) {
   cookies().set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 jours
+    maxAge: 60 * 60 * 12,
   });
 }
 
 export function clearSessionCookie() {
-  cookies().set(COOKIE_NAME, "", { path: "/", maxAge: 0 });
+  cookies().set(COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
-// À utiliser côté serveur (Server Components / Route Handlers) pour lire l'utilisateur courant
 export function getCurrentSession(): SessionPayload | null {
   const token = cookies().get(COOKIE_NAME)?.value;
   if (!token) return null;
