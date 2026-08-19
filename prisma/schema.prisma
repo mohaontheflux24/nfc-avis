@@ -16,8 +16,8 @@ model User {
   sessionVersion       Int        @default(0)
   active               Boolean    @default(true)
   subscriptionStatus   String     @default("active")
-  stripeCustomerId     String?    @unique
-  stripeSubscriptionId String?    @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
   subscriptionEndsAt   DateTime?
   createdAt            DateTime   @default(now())
   businesses           Business[]
