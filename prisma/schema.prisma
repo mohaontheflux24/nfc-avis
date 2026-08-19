@@ -1,4 +1,3 @@
-// Schéma de la base de données PostgreSQL
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  name      String?
-  role      String     @default("MERCHANT")
-  createdAt DateTime   @default(now())
-  businesses Business[]
+  id             String     @id @default(cuid())
+  email          String     @unique
+  password       String
+  name           String?
+  role           String     @default("MERCHANT")
+  sessionVersion Int        @default(0)
+  createdAt      DateTime   @default(now())
+  businesses     Business[]
 }
 
 model Business {
@@ -46,23 +46,32 @@ model NfcCard {
 }
 
 model Scan {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  fingerprint String?  @unique
 
   cardId String
   card   NfcCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
 }
 
 model Review {
-  id         String   @id @default(cuid())
-  rating     Int
-  comment    String?
+  id          String   @id @default(cuid())
+  rating      Int
+  comment     String?
   redirected Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  fingerprint String?  @unique
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   cardId String
   card   NfcCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model RateLimit {
+  key       String   @id
+  count     Int      @default(1)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
 }
