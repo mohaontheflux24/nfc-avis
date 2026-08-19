@@ -28,6 +28,8 @@ export default function LoginPage() {
       }
       router.push("/dashboard");
       router.refresh();
+    } catch {
+      setError("Problème de connexion. Réessayez.");
     } finally {
       setLoading(false);
     }
@@ -47,6 +49,8 @@ export default function LoginPage() {
             <label className="mb-1 block text-sm font-medium">Email</label>
             <input
               type="email"
+              autoComplete="email"
+              maxLength={254}
               required
               className="input"
               value={email}
@@ -57,6 +61,8 @@ export default function LoginPage() {
             <label className="mb-1 block text-sm font-medium">Mot de passe</label>
             <input
               type="password"
+              autoComplete="current-password"
+              maxLength={200}
               required
               className="input"
               value={password}

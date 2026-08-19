@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const COOKIE_NAME = "nfc_avis_session";
+const COOKIE_NAME = "__Host-nfc_avis_session";
 
 export function middleware(req: NextRequest) {
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-
-  if (!token) {
+  if (!req.cookies.get(COOKIE_NAME)?.value) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

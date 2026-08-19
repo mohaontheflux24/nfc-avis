@@ -1,20 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentSession } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getAccess } from "@/lib/access";
 import LogoutButton from "@/components/LogoutButton";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = getCurrentSession();
-  if (!session) redirect("/login");
-
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user) redirect("/login");
-
-  const configuredAdmin = process.env.ADMIN_EMAIL?.toLowerCase();
-  const isAdmin = user.role === "ADMIN" ||
-    user.name === "Admin" ||
-    user.email.toLowerCase() === configuredAdmin;
+  const access = await getAccess();
+  if (!access) redirect("/login");
 
   return (
     <div className="flex min-h-screen bg-porcelain">
@@ -24,16 +15,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
             NFC Avis
           </Link>
           <p className="mt-2 text-xs text-mist">
-            {isAdmin ? "Espace administrateur" : user.name || "Espace commerçant"}
+            {access.isAdmin ? "Espace administrateur" : access.user.name || "Espace commerçant"}
           </p>
           <nav className="mt-10 flex flex-col gap-1">
             <NavLink href="/dashboard">Tableau de bord</NavLink>
-            {isAdmin && (
+            {access.isAdmin && (
               <>
                 <NavLink href="/dashboard/businesses">Commerçants</NavLink>
                 <NavLink href="/dashboard/cards">Cartes NFC</NavLink>
               </>
             )}
+            <NavLink href="/dashboard/security">Sécurité</NavLink>
           </nav>
         </div>
         <LogoutButton />
