@@ -1,4 +1,4 @@
-// Schéma de la base de données (SQLite en local, changez "provider" pour "postgresql" en prod)
+// Schéma de la base de données PostgreSQL
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,16 +13,17 @@ model User {
   email     String     @unique
   password  String
   name      String?
+  role      String     @default("MERCHANT")
   createdAt DateTime   @default(now())
   businesses Business[]
 }
 
 model Business {
-  id             String   @id @default(cuid())
-  name           String
+  id              String   @id @default(cuid())
+  name            String
   googleReviewUrl String?
-  logoUrl        String?
-  createdAt      DateTime @default(now())
+  logoUrl         String?
+  createdAt       DateTime @default(now())
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -33,8 +34,8 @@ model Business {
 
 model NfcCard {
   id        String   @id @default(cuid())
-  label     String   // ex: "Table 1", "Comptoir", "Carte principale"
-  code      String   @unique // code court utilisé dans l'URL /r/[code]
+  label     String
+  code      String   @unique
   createdAt DateTime @default(now())
 
   businessId String
@@ -53,11 +54,11 @@ model Scan {
 }
 
 model Review {
-  id        String   @id @default(cuid())
-  rating    Int      // 1 à 5
-  comment   String?  // rempli seulement si note basse (1-3)
-  redirected Boolean @default(false) // true si le client a été renvoyé vers Google
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String?
+  redirected Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
