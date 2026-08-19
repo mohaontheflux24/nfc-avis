@@ -10,8 +10,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
   const isAdmin =
-    user.role === "ADMIN" ||
-    user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
+    user.role === "ADMIN" ||\n    user.name === "Admin" ||\n    user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
   const businessId = req.nextUrl.searchParams.get("businessId");
 
   const businessWhere = {
