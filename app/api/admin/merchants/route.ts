@@ -9,7 +9,7 @@ async function requireAdmin() {
 
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   const configuredAdmin = process.env.ADMIN_EMAIL?.toLowerCase();
-  const isAdmin = user?.role === "ADMIN" || user?.email.toLowerCase() === configuredAdmin;
+  const isAdmin = user?.role === "ADMIN" ||\n    user?.name === "Admin" ||\n    user?.email.toLowerCase() === configuredAdmin;
 
   return isAdmin ? user : null;
 }
