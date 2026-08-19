@@ -11,7 +11,9 @@ async function currentAccess() {
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   if (!user) return null;
   const isAdmin =
-    user.role === "ADMIN" ||\n    user.name === "Admin" ||\n    user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
+    user.role === "ADMIN" ||
+    user.name === "Admin" ||
+    user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
   return { user, isAdmin };
 }
 
