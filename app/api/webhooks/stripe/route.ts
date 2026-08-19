@@ -9,7 +9,8 @@ function customerId(value: string | Stripe.Customer | Stripe.DeletedCustomer | n
 
 async function syncSubscription(subscription: Stripe.Subscription) {
   const customer = customerId(subscription.customer);
-  const endsAt = new Date(subscription.current_period_end * 1000);
+  const periodEnd = subscription.items.data[0]?.current_period_end;
+  const endsAt = periodEnd ? new Date(periodEnd * 1000) : null;
 
   await prisma.user.updateMany({
     where: {
