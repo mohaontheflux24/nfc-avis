@@ -6,26 +6,37 @@ export async function GET(req: NextRequest) {
   const session = getCurrentSession();
   if (!session) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+
+  const isAdmin =
+    user.role === "ADMIN" ||
+    user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
   const businessId = req.nextUrl.searchParams.get("businessId");
 
-  const businessWhere = businessId
-    ? { id: businessId, ownerId: session.userId }
-    : { ownerId: session.userId };
+  const businessWhere = {
+    ...(businessId ? { id: businessId } : {}),
+    ...(isAdmin ? {} : { ownerId: user.id }),
+  };
 
-  const businesses = await prisma.business.findMany({ where: businessWhere, select: { id: true } });
-  const businessIds = businesses.map((b) => b.id);
+  const businesses = await prisma.business.findMany({
+    where: businessWhere,
+    select: { id: true },
+  });
+  const businessIds = businesses.map((business) => business.id);
 
   const [scanCount, reviews] = await Promise.all([
     prisma.scan.count({ where: { card: { businessId: { in: businessIds } } } }),
-    prisma.review.findMany({ where: { businessId: { in: businessIds } } }),
+    prisma.review.findMany({
+      where: { businessId: { in: businessIds } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
-  const googleReviewCount = reviews.filter((r) => r.redirected).length;
-  const privateFeedback = reviews
-    .filter((r) => !r.redirected)
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const googleReviewCount = reviews.filter((review) => review.redirected).length;
+  const privateFeedback = reviews.filter((review) => !review.redirected);
   const averageRating = reviews.length
-    ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10) / 10
+    ? Math.round((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) * 10) / 10
     : 0;
   const conversionRate = scanCount ? Math.round((googleReviewCount / scanCount) * 1000) / 10 : 0;
 
@@ -33,13 +44,13 @@ export async function GET(req: NextRequest) {
     scanCount,
     reviewCount: reviews.length,
     googleReviewCount,
-    conversionRate, // en %
+    conversionRate,
     averageRating,
-    privateFeedback: privateFeedback.map((r) => ({
-      id: r.id,
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: r.createdAt,
+    privateFeedback: privateFeedback.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
     })),
   });
 }
