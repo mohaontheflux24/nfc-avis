@@ -9,9 +9,13 @@ export default async function ScanPage({ params }: { params: { cardId: string } 
 
   const card = await prisma.nfcCard.findUnique({
     where: { code },
-    include: { business: true },
+    include: {
+      business: {
+        include: { owner: { select: { active: true } } },
+      },
+    },
   });
-  if (!card) notFound();
+  if (!card || !card.business.owner.active) notFound();
 
   const requestHeaders = headers();
   const ip =

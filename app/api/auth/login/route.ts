@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
   if (!user || !valid) {
     return NextResponse.json({ error: "Identifiants invalides." }, { status: 401 });
   }
+  if (!user.active) {
+    return NextResponse.json(
+      { error: "Ce compte est désactivé. Contactez l’administrateur." },
+      { status: 403 }
+    );
+  }
 
   const configuredAdmin = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   if (configuredAdmin && user.email.toLowerCase() === configuredAdmin && user.role !== "ADMIN") {

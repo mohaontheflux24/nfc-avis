@@ -29,10 +29,17 @@ export async function POST(req: NextRequest) {
 
   const card = await prisma.nfcCard.findUnique({
     where: { code },
-    include: { business: true },
+    include: {
+      business: {
+        include: { owner: { select: { active: true } } },
+      },
+    },
   });
   if (!card) {
     return NextResponse.json({ error: "Carte introuvable." }, { status: 404 });
+  }
+  if (!card.business.owner.active) {
+    return NextResponse.json({ error: "Cette carte est temporairement désactivée." }, { status: 403 });
   }
 
   const fingerprint = visitorFingerprint(req, `review:${code}`);

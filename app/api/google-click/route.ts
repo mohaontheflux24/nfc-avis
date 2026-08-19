@@ -15,7 +15,13 @@ export async function POST(req: NextRequest) {
   }
 
   const review = await prisma.review.findFirst({
-    where: { id: reviewId, card: { code } },
+    where: {
+      id: reviewId,
+      card: {
+        code,
+        business: { owner: { active: true } },
+      },
+    },
     select: { id: true, fingerprint: true },
   });
   const fingerprint = visitorFingerprint(req, `review:${code}`);
