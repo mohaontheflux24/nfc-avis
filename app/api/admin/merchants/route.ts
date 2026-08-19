@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const merchant = await prisma.user.findFirst({
-    where: { id, role: "MERCHANT", id: { not: access.user.id } },
+    where: { id, role: "MERCHANT" },
   });
   if (!merchant) {
     return NextResponse.json({ error: "Commerçant introuvable." }, { status: 404 });
@@ -159,7 +159,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const merchant = await prisma.user.findFirst({
-    where: { id, role: "MERCHANT", id: { not: access.user.id } },
+    where: { id, role: "MERCHANT" },
   });
   if (!merchant) {
     return NextResponse.json({ error: "Commerçant introuvable." }, { status: 404 });
