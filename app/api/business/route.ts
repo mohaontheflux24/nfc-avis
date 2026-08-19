@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentSession } from "@/lib/auth";
-
-async function currentAccess() {
-  const session = getCurrentSession();
-  if (!session) return null;
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user) return null;
-  const isAdmin =
-    user.role === "ADMIN" ||
-    user.name === "Admin" ||
-    user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
-  return { user, isAdmin };
-}
+import { getAccess } from "@/lib/access";
+import {
+  cleanText,
+  isSameOrigin,
+  validGoogleReviewUrl,
+  validHttpsUrl,
+} from "@/lib/security";
 
 export async function GET() {
-  const access = await currentAccess();
+  const access = await getAccess();
   if (!access) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
   const businesses = await prisma.business.findMany({
@@ -30,28 +24,41 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const access = await currentAccess();
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Origine non autorisée." }, { status: 403 });
+  }
+
+  const access = await getAccess();
   if (!access) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   if (!access.isAdmin) {
     return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
   }
 
-  const { name, googleReviewUrl, logoUrl, ownerId } = await req.json();
+  const body = await req.json().catch(() => null);
+  const name = cleanText(body?.name, 120);
+  const ownerId = cleanText(body?.ownerId, 100);
+  const googleInput = cleanText(body?.googleReviewUrl, 500);
+  const logoInput = cleanText(body?.logoUrl, 500);
+
   if (!name || !ownerId) {
     return NextResponse.json({ error: "Le nom et le commerçant sont requis." }, { status: 400 });
+  }
+
+  const googleReviewUrl = googleInput ? validGoogleReviewUrl(googleInput) : null;
+  const logoUrl = logoInput ? validHttpsUrl(logoInput) : null;
+  if (googleInput && !googleReviewUrl) {
+    return NextResponse.json({ error: "Lien Google Avis invalide." }, { status: 400 });
+  }
+  if (logoInput && !logoUrl) {
+    return NextResponse.json({ error: "URL de logo invalide." }, { status: 400 });
   }
 
   const owner = await prisma.user.findFirst({ where: { id: ownerId, role: "MERCHANT" } });
   if (!owner) return NextResponse.json({ error: "Commerçant introuvable." }, { status: 404 });
 
   const business = await prisma.business.create({
-    data: {
-      name,
-      googleReviewUrl: googleReviewUrl || null,
-      logoUrl: logoUrl || null,
-      ownerId,
-    },
+    data: { name, googleReviewUrl, logoUrl, ownerId },
   });
 
-  return NextResponse.json(business);
+  return NextResponse.json(business, { status: 201 });
 }
