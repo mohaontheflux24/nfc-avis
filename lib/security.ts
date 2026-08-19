@@ -41,19 +41,21 @@ export async function allowRequest(key: string, limit: number, windowSeconds: nu
   return true;
 }
 
-export function visitorFingerprint(req: NextRequest, purpose: string) {
+export function fingerprintFromValues(purpose: string, ip: string, userAgent: string) {
   const secret = process.env.FINGERPRINT_SECRET || process.env.JWT_SECRET;
   if (!secret) throw new Error("FINGERPRINT_SECRET ou JWT_SECRET doit être configuré.");
 
   const day = new Date().toISOString().slice(0, 10);
-  const value = [
-    purpose,
-    day,
-    getClientIp(req),
-    req.headers.get("user-agent") || "unknown",
-  ].join("|");
-
+  const value = [purpose, day, ip, userAgent].join("|");
   return crypto.createHmac("sha256", secret).update(value).digest("hex");
+}
+
+export function visitorFingerprint(req: NextRequest, purpose: string) {
+  return fingerprintFromValues(
+    purpose,
+    getClientIp(req),
+    req.headers.get("user-agent") || "unknown"
+  );
 }
 
 export function cleanText(value: unknown, maxLength: number) {
