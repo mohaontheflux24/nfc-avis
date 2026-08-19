@@ -1,9 +1,9 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { fingerprintFromValues } from "@/lib/security";
 import RatingForm from "@/components/RatingForm";
 
-// Note: le segment de dossier s'appelle [cardId] mais contient en réalité
-// le "code" court de la carte NFC (ex: /r/AB3C7XZ9).
 export default async function ScanPage({ params }: { params: { cardId: string } }) {
   const code = params.cardId;
 
@@ -11,11 +11,21 @@ export default async function ScanPage({ params }: { params: { cardId: string } 
     where: { code },
     include: { business: true },
   });
-
   if (!card) notFound();
 
-  // On enregistre le scan (best-effort, ne bloque pas l'affichage en cas d'erreur)
-  await prisma.scan.create({ data: { cardId: card.id } }).catch(() => null);
+  const requestHeaders = headers();
+  const ip =
+    requestHeaders.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+  const userAgent = requestHeaders.get("user-agent") || "unknown";
+  const fingerprint = fingerprintFromValues(`scan:${code}`, ip, userAgent);
+
+  await prisma.scan.upsert({
+    where: { fingerprint },
+    create: { cardId: card.id, fingerprint },
+    update: {},
+  }).catch(() => null);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-ink px-6 py-16 text-porcelain">
@@ -26,6 +36,7 @@ export default async function ScanPage({ params }: { params: { cardId: string } 
             src={card.business.logoUrl}
             alt={card.business.name}
             className="mx-auto mb-6 h-16 w-16 rounded-full object-cover"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-signal font-display text-xl font-semibold">
