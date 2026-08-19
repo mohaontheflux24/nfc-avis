@@ -9,9 +9,14 @@ import {
   validHttpsUrl,
 } from "@/lib/security";
 
-export async function GET() {
+async function requireAdmin() {
   const access = await getAccess();
-  if (!access?.isAdmin) {
+  return access?.isAdmin ? access : null;
+}
+
+export async function GET() {
+  const access = await requireAdmin();
+  if (!access) {
     return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
   }
 
@@ -21,6 +26,7 @@ export async function GET() {
       id: true,
       name: true,
       email: true,
+      active: true,
       createdAt: true,
       businesses: {
         select: {
@@ -43,8 +49,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Origine non autorisée." }, { status: 403 });
   }
 
-  const access = await getAccess();
-  if (!access?.isAdmin) {
+  const access = await requireAdmin();
+  if (!access) {
     return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
   }
 
@@ -84,6 +90,7 @@ export async function POST(req: NextRequest) {
       email,
       password: hashedPassword,
       role: "MERCHANT",
+      active: true,
       businesses: {
         create: { name: businessName, googleReviewUrl, logoUrl },
       },
@@ -92,9 +99,72 @@ export async function POST(req: NextRequest) {
       id: true,
       name: true,
       email: true,
+      active: true,
       businesses: { select: { id: true, name: true } },
     },
   });
 
   return NextResponse.json(merchant, { status: 201 });
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Origine non autorisée." }, { status: 403 });
+  }
+
+  const access = await requireAdmin();
+  if (!access) {
+    return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const id = cleanText(body?.id, 100);
+  if (!id || typeof body?.active !== "boolean") {
+    return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+  }
+
+  const merchant = await prisma.user.findFirst({
+    where: { id, role: "MERCHANT", id: { not: access.user.id } },
+  });
+  if (!merchant) {
+    return NextResponse.json({ error: "Commerçant introuvable." }, { status: 404 });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      active: body.active,
+      sessionVersion: { increment: 1 },
+    },
+    select: { id: true, active: true },
+  });
+
+  return NextResponse.json(updated);
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Origine non autorisée." }, { status: 403 });
+  }
+
+  const access = await requireAdmin();
+  if (!access) {
+    return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const id = cleanText(body?.id, 100);
+  if (!id || body?.confirmation !== "SUPPRIMER") {
+    return NextResponse.json({ error: "Confirmation de suppression invalide." }, { status: 400 });
+  }
+
+  const merchant = await prisma.user.findFirst({
+    where: { id, role: "MERCHANT", id: { not: access.user.id } },
+  });
+  if (!merchant) {
+    return NextResponse.json({ error: "Commerçant introuvable." }, { status: 404 });
+  }
+
+  await prisma.user.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }
