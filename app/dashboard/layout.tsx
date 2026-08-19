@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect("/login");
 
   const configuredAdmin = process.env.ADMIN_EMAIL?.toLowerCase();
-  const isAdmin = user.role === "ADMIN" || user.email.toLowerCase() === configuredAdmin;
+  const isAdmin = user.role === "ADMIN" ||\n    user.name === "Admin" ||\n    user.email.toLowerCase() === configuredAdmin;
 
   return (
     <div className="flex min-h-screen bg-porcelain">
