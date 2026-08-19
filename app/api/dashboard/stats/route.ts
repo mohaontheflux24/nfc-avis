@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
 
   const isAdmin =
     user.role === "ADMIN" ||
+    user.name === "Admin" ||
     user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
   const businessId = req.nextUrl.searchParams.get("businessId");
 

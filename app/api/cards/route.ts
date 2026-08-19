@@ -12,6 +12,7 @@ async function currentAccess() {
   if (!user) return null;
   const isAdmin =
     user.role === "ADMIN" ||
+    user.name === "Admin" ||
     user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
   return { user, isAdmin };
 }
