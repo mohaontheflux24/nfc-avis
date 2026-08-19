@@ -19,7 +19,15 @@ export async function POST(req: NextRequest) {
       id: reviewId,
       card: {
         code,
-        business: { owner: { active: true } },
+        business: {
+          owner: {
+            active: true,
+            OR: [
+              { role: "ADMIN" },
+              { subscriptionStatus: { in: ["active", "trialing"] } },
+            ],
+          },
+        },
       },
     },
     select: { id: true, fingerprint: true },
