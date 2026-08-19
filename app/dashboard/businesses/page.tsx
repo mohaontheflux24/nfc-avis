@@ -103,10 +103,10 @@ export default function MerchantsPage() {
           <label className="mb-1 block text-sm font-medium">Mot de passe temporaire</label>
           <input
             required
-            minLength={8}
+            minLength={12}
             type="password"
             className="input"
-            placeholder="8 caractères minimum"
+            placeholder="12 caractères minimum"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
