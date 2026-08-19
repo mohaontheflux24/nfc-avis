@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { fingerprintFromValues } from "@/lib/security";
 import RatingForm from "@/components/RatingForm";
 
+const PAID_STATUSES = ["active", "trialing"];
+
 export default async function ScanPage({ params }: { params: { cardId: string } }) {
   const code = params.cardId;
 
@@ -11,11 +13,17 @@ export default async function ScanPage({ params }: { params: { cardId: string } 
     where: { code },
     include: {
       business: {
-        include: { owner: { select: { active: true } } },
+        include: {
+          owner: { select: { active: true, role: true, subscriptionStatus: true } },
+        },
       },
     },
   });
-  if (!card || !card.business.owner.active) notFound();
+  const owner = card?.business.owner;
+  const hasAccess =
+    owner?.active &&
+    (owner.role === "ADMIN" || PAID_STATUSES.includes(owner.subscriptionStatus));
+  if (!card || !hasAccess) notFound();
 
   const requestHeaders = headers();
   const ip =

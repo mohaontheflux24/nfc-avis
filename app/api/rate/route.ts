@@ -8,6 +8,8 @@ import {
   visitorFingerprint,
 } from "@/lib/security";
 
+const PAID_STATUSES = ["active", "trialing"];
+
 export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Origine non autorisée." }, { status: 403 });
@@ -31,14 +33,21 @@ export async function POST(req: NextRequest) {
     where: { code },
     include: {
       business: {
-        include: { owner: { select: { active: true } } },
+        include: {
+          owner: { select: { active: true, role: true, subscriptionStatus: true } },
+        },
       },
     },
   });
   if (!card) {
     return NextResponse.json({ error: "Carte introuvable." }, { status: 404 });
   }
-  if (!card.business.owner.active) {
+
+  const owner = card.business.owner;
+  const hasAccess =
+    owner.active &&
+    (owner.role === "ADMIN" || PAID_STATUSES.includes(owner.subscriptionStatus));
+  if (!hasAccess) {
     return NextResponse.json({ error: "Cette carte est temporairement désactivée." }, { status: 403 });
   }
 

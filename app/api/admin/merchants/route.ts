@@ -27,6 +27,7 @@ export async function GET() {
       name: true,
       email: true,
       active: true,
+      subscriptionStatus: true,
       createdAt: true,
       businesses: {
         select: {
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
       password: hashedPassword,
       role: "MERCHANT",
       active: true,
+      subscriptionStatus: "incomplete",
       businesses: {
         create: { name: businessName, googleReviewUrl, logoUrl },
       },
@@ -100,6 +102,7 @@ export async function POST(req: NextRequest) {
       name: true,
       email: true,
       active: true,
+      subscriptionStatus: true,
       businesses: { select: { id: true, name: true } },
     },
   });
